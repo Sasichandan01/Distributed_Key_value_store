@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.cloudwick.kvstore.grpc";
+option java_outer_classname = "KVStoreProto";
+
+package kvstore;
+
+service KVStoreService {
+  rpc Put (PutRequest) returns (PutResponse) {}
+  rpc Get (GetRequest) returns (GetResponse) {}
+  rpc Delete (DeleteRequest) returns (DeleteResponse) {}
+  
+  // Raft RPCs
+  rpc RequestVote (VoteRequest) returns (VoteResponse) {}
+  rpc AppendEntries (AppendRequest) returns (AppendResponse) {}
+}
+
+message PutRequest {
+  string key = 1;
+  bytes value = 2;
+}
+
+message PutResponse {
+  bool success = 1;
+}
+
+message GetRequest {
+  string key = 1;
+}
+
+message GetResponse {
+  bool found = 1;
+  bytes value = 2;
+}
+
+message DeleteRequest {
+  string key = 1;
+}
+
+message DeleteResponse {
+  bool success = 1;
+}
+
+// Used for the Write-Ahead Log to record operations before applying them to memory
+message LogEntry {
+  enum Operation {
+    PUT = 0;
+    DELETE = 1;
+  }
+  Operation op = 1;
+  string key = 2;
+  bytes value = 3; // Only used for PUT operations
+  int32 term = 4;  // Raft term when this entry was received by the leader
+}
+
+// --- Raft Messages ---
+
+message VoteRequest {
+  int32 term = 1;
+  int32 candidateId = 2; // In our case, port number can act as node ID
+  int32 lastLogIndex = 3;
+  int32 lastLogTerm = 4;
+  bool isPreVote = 5; // [NEW] Pre-Vote check flag
+}
+
+message VoteResponse {
+  int32 term = 1;
+  bool voteGranted = 2;
+}
+
+message AppendRequest {
+  int32 term = 1;
+  int32 leaderId = 2;
+  int32 prevLogIndex = 3;
+  int32 prevLogTerm = 4;
+  repeated LogEntry entries = 5;
+  int32 leaderCommit = 6;
+}
+
+message AppendResponse {
+  int32 term = 1;
+  bool success = 2;
+  int32 lastLogIndex = 3;
+}
